@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -26,12 +26,25 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Byg test-APK
+      - name: Byg APK
         run: gradle :app:assembleDebug
 
-      - name: Gem APK som download
+      - name: Giv APK et tydeligt navn
+        run: cp app/build/outputs/apk/debug/app-debug.apk Min-Vaegt-v1.1.0.apk
+
+      - name: Gem APK i GitHub Actions
         uses: actions/upload-artifact@v4
         with:
           name: Min-Vaegt-v1.1.0
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: Min-Vaegt-v1.1.0.apk
           if-no-files-found: error
+
+      - name: Opret almindeligt offentligt downloadlink
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v1.1.0 >/dev/null 2>&1; then
+            gh release upload v1.1.0 Min-Vaegt-v1.1.0.apk --clobber
+          else
+            gh release create v1.1.0 Min-Vaegt-v1.1.0.apk --title "Min Vægt v1.1.0" --notes "Første Android-testversion med profil, idealvægt, startdato, vejninger, BMI, graf og historik." --latest
+          fi
