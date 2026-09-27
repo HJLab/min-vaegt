@@ -1,4 +1,4 @@
-name: Byg Android APK
+name: Byg og verificer Android APK
 
 on:
   push:
@@ -30,27 +30,61 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.android/debug.keystore
-          key: min-vaegt-clean-keystore-v2
+          key: min-vaegt-v2-signing-key
 
       - name: Byg APK
-        run: gradle :app:assembleDebug
+        run: gradle clean :app:assembleDebug
 
-      - name: Giv APK et tydeligt navn
-        run: cp app/build/outputs/apk/debug/app-debug.apk Min-Vaegt-v1.3.0.apk
+      - name: Find Android build-tools
+        id: bt
+        shell: bash
+        run: |
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          echo "dir=$BT" >> "$GITHUB_OUTPUT"
+          echo "Bruger build-tools: $BT"
 
-      - name: Gem APK i GitHub Actions
+      - name: Kontroller APK-filens ZIP-struktur
+        run: unzip -t app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Kontroller APK-signatur
+        run: '"${{ steps.bt.outputs.dir }}/apksigner" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk'
+
+      - name: Kontroller manifest og pakke-id
+        run: '"${{ steps.bt.outputs.dir }}/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | tee apk-badging.txt'
+
+      - name: Kontroller korrekt pakke og version
+        shell: bash
+        run: |
+          grep -q "package: name='dk.hjlab.minvaegtclean'" apk-badging.txt
+          grep -q "versionCode='200'" apk-badging.txt
+          grep -q "versionName='2.0.0'" apk-badging.txt
+
+      - name: Lav filer til download
+        shell: bash
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk Min-Vaegt-v2.0.0.apk
+          sha256sum Min-Vaegt-v2.0.0.apk > SHA256SUMS.txt
+          zip -9 Min-Vaegt-v2.0.0.zip Min-Vaegt-v2.0.0.apk SHA256SUMS.txt
+          ls -lh Min-Vaegt-v2.0.0.apk Min-Vaegt-v2.0.0.zip SHA256SUMS.txt
+
+      - name: Gem verificerede filer
         uses: actions/upload-artifact@v4
         with:
-          name: Min-Vaegt-v1.3.0
-          path: Min-Vaegt-v1.3.0.apk
+          name: Min-Vaegt-v2.0.0-verificeret
+          path: |
+            Min-Vaegt-v2.0.0.apk
+            Min-Vaegt-v2.0.0.zip
+            SHA256SUMS.txt
+            apk-badging.txt
           if-no-files-found: error
 
-      - name: Opret almindeligt offentligt downloadlink
+      - name: Opret release
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
-          if gh release view v1.3.0 >/dev/null 2>&1; then
-            gh release upload v1.3.0 Min-Vaegt-v1.3.0.apk --clobber
+          if gh release view v2.0.0 >/dev/null 2>&1; then
+            gh release upload v2.0.0 Min-Vaegt-v2.0.0.apk Min-Vaegt-v2.0.0.zip SHA256SUMS.txt --clobber
           else
-            gh release create v1.3.0 Min-Vaegt-v1.3.0.apk --title "Min Vægt v1.3.0" --notes "Ren genopbygning med nyt app-id. Denne serie genbruger samme signeringsnoegle til kommende opdateringer." --latest
+            gh release create v2.0.0 Min-Vaegt-v2.0.0.apk Min-Vaegt-v2.0.0.zip SHA256SUMS.txt               --title "Min Vægt v2.0.0"               --notes "Helt ny installationsserie. APK er automatisk kontrolleret for ZIP-struktur, Android-signatur, pakke-id og versionsnummer før release."
           fi

@@ -1,4 +1,4 @@
-package dk.hjlab.minvaegt2;
+package dk.hjlab.minvaegtclean;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -73,7 +73,7 @@ public class MainActivity extends Activity {
         titles.addView(text("MIN VÆGT", 22, GREEN, true));
         titles.addView(text("Dit rolige overblik", 13, Color.DKGRAY, false));
         header.addView(titles, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
-        header.addView(text("v1.2.2", 12, Color.GRAY, false));
+        header.addView(text("v2.0.0", 12, Color.GRAY, false));
         root.addView(header);
 
         content = new FrameLayout(this);

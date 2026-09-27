@@ -3,18 +3,21 @@ plugins {
 }
 
 android {
-    namespace = "dk.hjlab.minvaegt2"
+    namespace = "dk.hjlab.minvaegtclean"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "dk.hjlab.minvaegt.test"
+        applicationId = "dk.hjlab.minvaegtclean"
         minSdk = 26
         targetSdk = 35
-        versionCode = 122
-        versionName = "1.2.2"
+        versionCode = 200
+        versionName = "2.0.0"
     }
 
     buildTypes {
+        debug {
+            isDebuggable = true
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
