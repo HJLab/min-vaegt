@@ -1,4 +1,4 @@
-package dk.hjlab.minvaegttest;
+package dk.hjlab.minvaegt;
 
 import android.app.Activity;
 import android.graphics.Color;
@@ -24,13 +24,13 @@ public class MainActivity extends Activity {
         title.setGravity(Gravity.CENTER);
 
         TextView version = new TextView(this);
-        version.setText("Version 3.0.0");
+        version.setText("Version 3.0.1");
         version.setTextSize(18);
         version.setTextColor(Color.DKGRAY);
         version.setGravity(Gravity.CENTER);
 
         TextView status = new TextView(this);
-        status.setText("Hvis du kan se denne side, er appen installeret korrekt.");
+        status.setText("Installationen virker.");
         status.setTextSize(16);
         status.setTextColor(Color.DKGRAY);
         status.setGravity(Gravity.CENTER);

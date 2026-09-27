@@ -3,15 +3,15 @@ plugins {
 }
 
 android {
-    namespace = "dk.hjlab.minvaegttest"
+    namespace = "dk.hjlab.minvaegt"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "dk.hjlab.minvaegttest"
+        applicationId = "dk.hjlab.minvaegttest301"
         minSdk = 26
         targetSdk = 35
-        versionCode = 300
-        versionName = "3.0.0"
+        versionCode = 301
+        versionName = "3.0.1"
     }
 
     buildTypes {
