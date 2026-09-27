@@ -26,25 +26,31 @@ jobs:
         with:
           gradle-version: "8.9"
 
+      - name: Genbrug samme signeringsnoegle
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: min-vaegt-debug-keystore-v1
+
       - name: Byg APK
         run: gradle :app:assembleDebug
 
       - name: Giv APK et tydeligt navn
-        run: cp app/build/outputs/apk/debug/app-debug.apk Min-Vaegt-v1.2.0.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk Min-Vaegt-v1.2.1.apk
 
       - name: Gem APK i GitHub Actions
         uses: actions/upload-artifact@v4
         with:
-          name: Min-Vaegt-v1.2.0
-          path: Min-Vaegt-v1.2.0.apk
+          name: Min-Vaegt-v1.2.1
+          path: Min-Vaegt-v1.2.1.apk
           if-no-files-found: error
 
       - name: Opret almindeligt offentligt downloadlink
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v1.2.0 >/dev/null 2>&1; then
-            gh release upload v1.2.0 Min-Vaegt-v1.2.0.apk --clobber
+          if gh release view v1.2.1 >/dev/null 2>&1; then
+            gh release upload v1.2.1 Min-Vaegt-v1.2.1.apk --clobber
           else
-            gh release create v1.2.0 Min-Vaegt-v1.2.0.apk --title "Min Vægt v1.2.0" --notes "Android-testversion med vægtforløb, madregistrering, dagligt kalorieoverblik og madfoto." --latest
+            gh release create v1.2.1 Min-Vaegt-v1.2.1.apk --title "Min Vægt v1.2.1" --notes "Rettet installationsflow. Samme signeringsnoegle genbruges ved kommende builds, saa opdateringer kan installeres oven paa denne version." --latest
           fi
