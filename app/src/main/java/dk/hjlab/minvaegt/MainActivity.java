@@ -1,4 +1,4 @@
-package dk.hjlab.minvaegt;
+package dk.hjlab.minvaegt2;
 
 import android.app.Activity;
 import android.app.AlertDialog;

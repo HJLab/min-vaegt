@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "dk.hjlab.minvaegt"
+    namespace = "dk.hjlab.minvaegt2"
     compileSdk = 35
 
     defaultConfig {

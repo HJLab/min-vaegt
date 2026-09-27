@@ -30,7 +30,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.android/debug.keystore
-          key: min-vaegt-debug-keystore-v1
+          key: min-vaegt-clean-keystore-v2
 
       - name: Byg APK
         run: gradle :app:assembleDebug
