@@ -1,4 +1,4 @@
-name: Byg og verificer Android APK
+name: Byg minimal test-app v3.0.0
 
 on:
   push:
@@ -11,6 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Hent kode
         uses: actions/checkout@v4
@@ -21,18 +22,18 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Installer Gradle
+      - name: Installer Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
 
-      - name: Genbrug samme signeringsnoegle
+      - name: Genbrug samme Android debug-keystore
         uses: actions/cache@v4
         with:
           path: ~/.android/debug.keystore
-          key: min-vaegt-v2-signing-key
+          key: min-vaegt-test-v3-keystore
 
-      - name: Byg APK
+      - name: Rens og byg minimal APK
         run: gradle clean :app:assembleDebug
 
       - name: Find Android build-tools
@@ -41,50 +42,48 @@ jobs:
         run: |
           BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
           echo "dir=$BT" >> "$GITHUB_OUTPUT"
-          echo "Bruger build-tools: $BT"
 
-      - name: Kontroller APK-filens ZIP-struktur
+      - name: Verificer APK som ZIP
         run: unzip -t app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Kontroller APK-signatur
+      - name: Verificer Android-signatur
         run: '"${{ steps.bt.outputs.dir }}/apksigner" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk'
 
-      - name: Kontroller manifest og pakke-id
+      - name: Laes APK-identitet
         run: '"${{ steps.bt.outputs.dir }}/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | tee apk-badging.txt'
 
-      - name: Kontroller korrekt pakke og version
+      - name: Krydstjek pakke, version og minSdk
         shell: bash
         run: |
-          grep -q "package: name='dk.hjlab.minvaegtclean'" apk-badging.txt
-          grep -q "versionCode='200'" apk-badging.txt
-          grep -q "versionName='2.0.0'" apk-badging.txt
+          grep -q "package: name='dk.hjlab.minvaegttest'" apk-badging.txt
+          grep -q "versionCode='300'" apk-badging.txt
+          grep -q "versionName='3.0.0'" apk-badging.txt
+          grep -q "sdkVersion:'26'" apk-badging.txt
 
-      - name: Lav filer til download
+      - name: Omdob APK og lav checksum
         shell: bash
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk Min-Vaegt-v2.0.0.apk
-          sha256sum Min-Vaegt-v2.0.0.apk > SHA256SUMS.txt
-          zip -9 Min-Vaegt-v2.0.0.zip Min-Vaegt-v2.0.0.apk SHA256SUMS.txt
-          ls -lh Min-Vaegt-v2.0.0.apk Min-Vaegt-v2.0.0.zip SHA256SUMS.txt
+          cp app/build/outputs/apk/debug/app-debug.apk Min-Vaegt-TEST-v3.0.0.apk
+          sha256sum Min-Vaegt-TEST-v3.0.0.apk > SHA256SUMS-v3.0.0.txt
+          ls -lh Min-Vaegt-TEST-v3.0.0.apk SHA256SUMS-v3.0.0.txt
 
-      - name: Gem verificerede filer
+      - name: Gem verificeret test-APK
         uses: actions/upload-artifact@v4
         with:
-          name: Min-Vaegt-v2.0.0-verificeret
+          name: Min-Vaegt-TEST-v3.0.0
           path: |
-            Min-Vaegt-v2.0.0.apk
-            Min-Vaegt-v2.0.0.zip
-            SHA256SUMS.txt
+            Min-Vaegt-TEST-v3.0.0.apk
+            SHA256SUMS-v3.0.0.txt
             apk-badging.txt
           if-no-files-found: error
 
-      - name: Opret release
+      - name: Opret GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          if gh release view v2.0.0 >/dev/null 2>&1; then
-            gh release upload v2.0.0 Min-Vaegt-v2.0.0.apk Min-Vaegt-v2.0.0.zip SHA256SUMS.txt --clobber
+          if gh release view test-v3.0.0 >/dev/null 2>&1; then
+            gh release upload test-v3.0.0 Min-Vaegt-TEST-v3.0.0.apk SHA256SUMS-v3.0.0.txt --clobber
           else
-            gh release create v2.0.0 Min-Vaegt-v2.0.0.apk Min-Vaegt-v2.0.0.zip SHA256SUMS.txt               --title "Min Vægt v2.0.0"               --notes "Helt ny installationsserie. APK er automatisk kontrolleret for ZIP-struktur, Android-signatur, pakke-id og versionsnummer før release."
+            gh release create test-v3.0.0 Min-Vaegt-TEST-v3.0.0.apk SHA256SUMS-v3.0.0.txt               --title "Min Vægt TEST v3.0.0"               --notes "Helt minimal test-app uden vægtdata eller andre funktioner. Kun lavet for at bevise at APK-installation virker. APK er verificeret for ZIP-struktur, Android-signatur, package-id, version og minSdk før release."
           fi
