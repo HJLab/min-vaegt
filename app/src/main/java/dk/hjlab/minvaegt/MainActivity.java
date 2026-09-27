@@ -3,6 +3,7 @@ package dk.hjlab.minvaegt;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -39,7 +40,12 @@ public class MainActivity extends Activity {
     private static final int PALE = Color.rgb(232, 243, 231);
     private static final int BG = Color.rgb(247, 249, 246);
     private static final String PREFS = "min_vaegt";
+    private static final String FOODS = "foods";
+    private static final int PICK_MEAL_PHOTO = 421;
     private final List<WeightEntry> weights = new ArrayList<>();
+    private final List<FoodEntry> foods = new ArrayList<>();
+    private String selectedFoodPhotoUri = "";
+    private TextView pendingPhotoStatus;
     private SharedPreferences prefs;
     private FrameLayout content;
     private Profile profile;
@@ -49,6 +55,7 @@ public class MainActivity extends Activity {
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         profile = loadProfile();
         loadWeights();
+        loadFoods();
         buildShell();
         showDashboard();
     }
@@ -77,6 +84,7 @@ public class MainActivity extends Activity {
         nav.setBackgroundColor(Color.WHITE);
         nav.addView(navButton("Overblik", v -> showDashboard()), weightParams());
         nav.addView(navButton("+ Ny vejning", v -> showAddWeight()), weightParams());
+        nav.addView(navButton("Mad", v -> showFood()), weightParams());
         nav.addView(navButton("Profil", v -> showProfile()), weightParams());
         root.addView(nav);
         setContentView(root);
@@ -164,6 +172,131 @@ public class MainActivity extends Activity {
         });
         box.addView(save);
         content.addView(box);
+    }
+
+
+    private void showFood() {
+        content.removeAllViews();
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout box = column();
+        box.setPadding(dp(16), dp(12), dp(16), dp(18));
+        box.addView(text("Mad i dag", 27, Color.BLACK, true));
+        box.addView(text("Registrér det løbende – uden morgen-/eftermiddagsfelter.", 14, Color.GRAY, false));
+
+        LocalDate today = LocalDate.now();
+        double total = 0;
+        List<FoodEntry> todayEntries = new ArrayList<>();
+        for (FoodEntry entry : foods) {
+            if (Instant.ofEpochMilli(entry.timestamp).atZone(ZoneId.systemDefault()).toLocalDate().equals(today)) {
+                todayEntries.add(entry);
+                total += entry.calories;
+            }
+        }
+        LinearLayout totalCard = card(PALE);
+        totalCard.addView(text("Dagens samlede indtag", 14, Color.DKGRAY, false));
+        totalCard.addView(text(Math.round(total) + " kcal", 36, GREEN, true));
+        totalCard.addView(text(today.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")), 13, Color.GRAY, false));
+        box.addView(totalCard, marginParams(0, 14));
+
+        Button add = primaryButton("+ Registrér mad");
+        add.setOnClickListener(v -> showAddFood());
+        box.addView(add, marginParams(0, 0));
+
+        box.addView(text("Dagens registreringer", 20, Color.BLACK, true), marginParams(14, 8));
+        todayEntries.sort((a, b) -> Long.compare(b.timestamp, a.timestamp));
+        if (todayEntries.isEmpty()) {
+            box.addView(text("Ingen mad er registreret endnu i dag.", 15, Color.GRAY, false));
+        } else {
+            for (FoodEntry entry : todayEntries) {
+                LinearLayout row = row();
+                row.setGravity(Gravity.CENTER_VERTICAL);
+                row.setPadding(dp(14), dp(10), dp(8), dp(10));
+                row.setBackground(roundRect(Color.WHITE, 14));
+                LinearLayout left = column();
+                left.addView(text(entry.description, 18, Color.BLACK, true));
+                String sub = Math.round(entry.calories) + " kcal · " + formatTime(entry.timestamp);
+                if (!entry.photoUri.isEmpty()) sub += " · foto";
+                left.addView(text(sub, 13, Color.GRAY, false));
+                row.addView(left, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+                Button delete = new Button(this);
+                delete.setText("Slet");
+                delete.setOnClickListener(v -> {
+                    foods.remove(entry);
+                    saveFoods();
+                    showFood();
+                });
+                row.addView(delete);
+                box.addView(row, marginParams(0, 7));
+            }
+        }
+        box.addView(text("Kalorier er bevidst cirka-tal. Billedanalyse kommer i næste trin.", 13, Color.GRAY, false),
+                marginParams(14, 0));
+        scroll.addView(box);
+        content.addView(scroll);
+    }
+
+    private void showAddFood() {
+        content.removeAllViews();
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout box = column();
+        box.setPadding(dp(20), dp(18), dp(20), dp(18));
+        box.addView(text("Registrér mad", 27, Color.BLACK, true));
+        box.addView(text("Tidspunktet gemmes automatisk.", 14, Color.GRAY, false));
+
+        EditText description = input("Hvad har du spist eller drukket?");
+        EditText calories = input("Ca. kalorier");
+        calories.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        box.addView(description, marginParams(0, 18));
+        box.addView(calories, marginParams(0, 8));
+
+        TextView photoStatus = text(selectedFoodPhotoUri.isEmpty() ? "Intet foto vedhæftet" : "Foto er vedhæftet", 14, Color.GRAY, false);
+        Button photo = new Button(this);
+        photo.setText("Vælg foto af måltid");
+        photo.setOnClickListener(v -> {
+            pendingPhotoStatus = photoStatus;
+            Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            pick.addCategory(Intent.CATEGORY_OPENABLE);
+            pick.setType("image/*");
+            startActivityForResult(pick, PICK_MEAL_PHOTO);
+        });
+        box.addView(photo, marginParams(8, 0));
+        box.addView(photoStatus, marginParams(0, 8));
+
+        Button save = primaryButton("Gem madregistrering");
+        save.setOnClickListener(v -> {
+            Double kcal = parse(calories.getText().toString());
+            String food = description.getText().toString().trim();
+            if (food.isEmpty()) {
+                description.setError("Skriv kort, hvad du har spist");
+                return;
+            }
+            if (kcal == null || kcal < 0 || kcal > 10000) {
+                calories.setError("Skriv et realistisk cirka-tal");
+                return;
+            }
+            foods.add(new FoodEntry(food, kcal, System.currentTimeMillis(), selectedFoodPhotoUri));
+            saveFoods();
+            selectedFoodPhotoUri = "";
+            pendingPhotoStatus = null;
+            Toast.makeText(this, "Madregistreringen er gemt", Toast.LENGTH_SHORT).show();
+            showFood();
+        });
+        box.addView(save, marginParams(8, 0));
+        scroll.addView(box);
+        content.addView(scroll);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PICK_MEAL_PHOTO && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            try {
+                int flags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                getContentResolver().takePersistableUriPermission(data.getData(), flags);
+            } catch (Exception ignored) { }
+            selectedFoodPhotoUri = data.getData().toString();
+            if (pendingPhotoStatus != null) pendingPhotoStatus.setText("Foto er vedhæftet");
+        }
     }
 
     private void showProfile() {
@@ -260,6 +393,33 @@ public class MainActivity extends Activity {
             }
         } catch (Exception ignored) {}
         prefs.edit().putString("weights", array.toString()).apply();
+    }
+
+
+    private void loadFoods() {
+        foods.clear();
+        try {
+            JSONArray array = new JSONArray(prefs.getString(FOODS, "[]"));
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject item = array.getJSONObject(i);
+                foods.add(new FoodEntry(item.getString("description"), item.getDouble("calories"),
+                        item.getLong("timestamp"), item.optString("photoUri", "")));
+            }
+        } catch (Exception ignored) { }
+    }
+
+    private void saveFoods() {
+        JSONArray array = new JSONArray();
+        try {
+            for (FoodEntry entry : foods) {
+                array.put(new JSONObject()
+                        .put("description", entry.description)
+                        .put("calories", entry.calories)
+                        .put("timestamp", entry.timestamp)
+                        .put("photoUri", entry.photoUri));
+            }
+        } catch (Exception ignored) { }
+        prefs.edit().putString(FOODS, array.toString()).apply();
     }
 
     private LinearLayout stat(String title, String value) {
@@ -389,6 +549,17 @@ public class MainActivity extends Activity {
         Profile(String name, double heightCm, double startWeight, double goalWeight, String startDate) {
             this.name = name; this.heightCm = heightCm; this.startWeight = startWeight;
             this.goalWeight = goalWeight; this.startDate = startDate;
+        }
+    }
+
+
+    private static class FoodEntry {
+        final String description, photoUri;
+        final double calories;
+        final long timestamp;
+        FoodEntry(String description, double calories, long timestamp, String photoUri) {
+            this.description = description; this.calories = calories;
+            this.timestamp = timestamp; this.photoUri = photoUri;
         }
     }
 
